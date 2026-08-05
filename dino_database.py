@@ -30,79 +30,106 @@ if df.empty:
 else:
     st.title("🦖 Database interattivo dei Dinosauri")
     
-    st.subheader("Filtri di ricerca")
-    
-    # --- RIPARAZIONE FILTRI GEOGRAFICI A CASCATA ---
+    # --- FILTRI GEOGRAFICI A CASCATA ---
     df_filtered = df.copy()
     
-    # Rilevamento automatico delle colonne geografiche dal tuo CSV
-    col_regione = 'region' if 'region' in df.columns else 'continent' if 'continent' in df.columns else 'state' if 'state' in df.columns else None
+    col_regione = 'region' if 'region' in df.columns else 'continent' if 'continent' in df.columns else None
     col_paese = 'country' if 'country' in df.columns else 'cc' if 'cc' in df.columns else None
     
-    col1, col2 = st.columns(2)
+    st.subheader("🔍 Filtri Geografici")
+    f_col1, f_col2 = st.columns(2)
     
-    with col1:
+    with f_col1:
         if col_regione:
             regioni = sorted(df_filtered[col_regione].dropna().astype(str).unique())
-            seleziona_regione = st.selectbox("🌍 Filtra per Regione:", ["Tutte"] + list(regioni))
-            
-            # Applica il filtro della regione
+            seleziona_regione = st.selectbox("🌍 Filtra per Regione/Continente:", ["Tutte"] + list(regioni))
             if seleziona_regione != "Tutte":
                 df_filtered = df_filtered[df_filtered[col_regione] == seleziona_regione]
                 
-    with col2:
+    with f_col2:
         if col_paese:
-            # La genialata è qui: calcoliamo i Paesi SOLO DOPO aver filtrato la Regione!
             paesi = sorted(df_filtered[col_paese].dropna().astype(str).unique())
             seleziona_paese = st.selectbox("🏳️ Filtra per Paese:", ["Tutti"] + list(paesi))
-            
-            # Applica il filtro del paese
             if seleziona_paese != "Tutti":
                 df_filtered = df_filtered[df_filtered[col_paese] == seleziona_paese]
-    
+
     st.markdown("---")
     
-    # --- SELEZIONE E SCHEDA DINOSAURO ---
+    # --- TABELLA RISULTATI FILTRATI ---
+    st.subheader(f"📊 Tabella Dinosauri Trovati ({len(df_filtered)})")
+    
+    cols_to_display = ['name']
+    if col_regione and col_regione in df_filtered.columns:
+        cols_to_display.append(col_regione)
+    if col_paese and col_paese in df_filtered.columns:
+        cols_to_display.append(col_paese)
+    if 'locality' in df_filtered.columns:
+        cols_to_display.append('locality')
+        
+    st.dataframe(df_filtered[cols_to_display], use_container_width=True)
+    
+    # --- SCHEDA DETTAGLIATA CON VALORI MULTIPLI ---
     dino_list = sorted(df_filtered['name'].dropna().unique())
     
-    if len(dino_list) == 0:
-        st.warning("Nessun dinosauro trovato in questa specifica area. Prova ad allargare i filtri!")
-    else:
-        selected_dino = st.selectbox("🦕 Seleziona un dinosauro:", dino_list)
+    if dino_list:
+        st.markdown("---")
+        selected_dino = st.selectbox("🦕 Seleziona un dinosauro per la scheda dettagliata:", dino_list)
         
         if selected_dino:
-            dino_data = df_filtered[df_filtered['name'] == selected_dino].iloc[0]
+            # Raccogliamo TUTTI i record di questo dinosauro nel database
+            all_dino_rows = df[df['name'] == selected_dino]
             
-            st.subheader(f"Scheda Informativa: {selected_dino}")
+            st.subheader(f"Scheda Informativa Completa: {selected_dino}")
             
-            # Informazioni (Senza Dieta)
+            # 1. Estrazione di tutti i Continenti/Regioni unici
+            if col_regione and col_regione in all_dino_rows.columns:
+                regioni_unisc = all_dino_rows[col_regione].dropna().astype(str).unique()
+                regioni_str = ", ".join(regioni_unisc) if len(regioni_unisc) > 0 else "Non registrato"
+            else:
+                regioni_str = "N/D"
+
+            # 2. Estrazione di tutti i Paesi unici
+            if col_paese and col_paese in all_dino_rows.columns:
+                paesi_unici = all_dino_rows[col_paese].dropna().astype(str).unique()
+                paesi_str = ", ".join(paesi_unici) if len(paesi_unici) > 0 else "Non registrato"
+            else:
+                paesi_str = "N/D"
+
+            # 3. Estrazione degli intervalli temporali unici
+            intervalli_unici = all_dino_rows['interval'].dropna().astype(str).unique() if 'interval' in all_dino_rows.columns else []
+            intervallo_str = ", ".join(intervalli_unici) if len(intervalli_unici) > 0 else "N/D"
+
+            # 4. Estrazione delle località (mostra le prime 5 se ce ne sono tante)
+            localita_uniche = all_dino_rows['locality'].dropna().astype(str).unique() if 'locality' in all_dino_rows.columns else []
+            if len(localita_uniche) > 5:
+                localita_str = ", ".join(localita_uniche[:5]) + f" (e altre {len(localita_uniche)-5} località...)"
+            elif len(localita_uniche) > 0:
+                localita_str = ", ".join(localita_uniche)
+            else:
+                localita_str = "N/D"
+
             info_col1, info_col2 = st.columns(2)
             
             with info_col1:
-                st.write(f"**Gruppo/Epoca:** {dino_data.get('early_interval', 'Non specificato')}")
-                country_str = dino_data.get(col_paese, 'N/D') if col_paese else 'N/D'
-                if pd.isna(country_str) or str(country_str).strip() == '':
-                    country_str = "Non registrato"
-                st.write(f"🌍 **Nazione del ritrovamento:** {country_str}")
-                st.write(f"📍 **Località:** {dino_data.get('locality', 'N/D')}")
+                st.write(f"🗺️ **Continente/i - Regione/i:** {regioni_str}")
+                st.write(f"🌍 **Paese/i del ritrovamento:** {paesi_str}")
+                st.write(f"📍 **Località note:** {localita_str}")
                 
             with info_col2:
-                st.write(f"⏳ **Intervallo temporale:** {dino_data.get('interval', 'N/D')}")
-                lat = dino_data.get('lat', 'N/D')
-                lng = dino_data.get('lng', 'N/D')
-                st.write(f"🧭 **Coordinate:** Lat: {lat}, Lng: {lng}")
+                st.write(f"⏳ **Intervallo/i temporale/i:** {intervallo_str}")
+                st.write(f"🦴 **Numero totale di fossili/ritrovamenti registrati:** {len(all_dino_rows)}")
 
-            # --- REINDIRIZZAMENTO A THE DINOSAUR DATABASE ---
+            # Link di reindirizzamento a The Dinosaur Database
             query_encoded = urllib.parse.quote(selected_dino)
             dino_db_url = f"https://dinosaurpictures.org/{query_encoded}"
             
             st.markdown("---")
             st.markdown(f"👉 [**Cerca {selected_dino} su The Dinosaur Database**]({dino_db_url})", unsafe_allow_html=True)
 
-    # --- ESTRAZIONE CASUALE TOTALE ---
+    # --- BOTTONE CASUALE ---
     st.markdown("---")
-    if st.button("🎲 Pescane uno a caso dal database totale!"):
+    if st.button("🎲 Pescane uno a caso!"):
         all_dinos = sorted(df['name'].dropna().unique())
         random_dino = random.choice(all_dinos)
-        st.info(f"Abbiamo estratto: **{random_dino}**! (Imposta i filtri geografici su 'Tutte/i' per cercarlo nel menu)")
-                
+        st.info(f"Abbiamo estratto: **{random_dino}**!")
+    
