@@ -109,4 +109,4 @@ else:
             
             st.markdown("---")
             st.markdown(f"👉 [**Cerca {selected_dino} su The Dinosaur Database**]({dino_db_url})", unsafe_allow_html=True)
-            
+        
