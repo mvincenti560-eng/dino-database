@@ -10,7 +10,6 @@ def load_data():
     try:
         df = pd.read_csv("pbdb_data (1).csv", skiprows=16)
         
-        # Pulizia nome accettato
         if 'accepted_name' in df.columns:
             df = df.dropna(subset=['accepted_name'])
             df['name'] = df['accepted_name']
@@ -22,7 +21,6 @@ def load_data():
             
         return df
     except Exception as e:
-        st.error(f"Errore nel caricamento del file CSV: {e}")
         return pd.DataFrame()
 
 df = load_data()
@@ -32,7 +30,7 @@ if df.empty:
 else:
     st.title("🦖 Database interattivo dei Dinosauri")
     
-    # Barra di ricerca
+    # Selezione pulita del dinosauro senza filtri geografici ingannevoli
     dino_list = sorted(df['name'].dropna().unique())
     selected_dino = st.selectbox("Cerca o seleziona un dinosauro:", dino_list)
     
@@ -44,8 +42,7 @@ else:
         col1, col2 = st.columns(2)
         
         with col1:
-            st.write(f"**Tassonomia/Gruppo:** {dino_data.get('early_interval', 'Non specificato')}")
-            # Correzione Paese di ritrovamento dal database (colonna 'country')
+            st.write(f"**Gruppo:** {dino_data.get('early_interval', 'Non specificato')}")
             country = dino_data.get('country', 'N/D')
             if pd.isna(country) or country == '':
                 country = "Non registrato nel database"
@@ -56,18 +53,17 @@ else:
             st.write(f"⏳ **Intervallo temporale:** {dino_data.get('interval', 'N/D')}")
             lat = dino_data.get('lat', 'N/D')
             lng = dino_data.get('lng', 'N/D')
-            st.write(f"🧭 **Coordinate geografiche:** Lat: {lat}, Lng: {lng}")
+            st.write(f"🧭 **Coordinate:** Lat: {lat}, Lng: {lng}")
 
         # Link diretto a The Dinosaur Database
         query_encoded = urllib.parse.quote(selected_dino)
         dino_db_url = f"https://dinosaurpictures.org/{query_encoded}"
         
         st.markdown("---")
-        st.markdown(f"🔍 **Vuoi approfondire su The Dinosaur Database?** Clicca sul link qui sotto:")
         st.markdown(f"👉 [Cerca **{selected_dino}** su The Dinosaur Database]({dino_db_url})", unsafe_allow_html=True)
 
-    # Pulsante per dinosauro casuale
+    st.markdown("---")
     if st.button("🎲 Pescane uno a caso!"):
         random_dino = random.choice(dino_list)
-        st.info(Abbiamo estratto: **{random_dino}**! Cercalo nel menu a tendina sopra.)
+        st.info(f"Abbiamo estratto: **{random_dino}**! Cercalo nel menu a tendina sopra.")
     
