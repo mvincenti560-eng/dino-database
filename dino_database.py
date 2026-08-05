@@ -3,13 +3,17 @@ import pandas as pd
 import random
 import urllib.parse
 
-st.set_page_config(page_title="Dino Database Interattivo", layout="wide")
+# Configurazione della pagina
+st.set_page_config(page_title="Database Dinosauri", layout="wide")
 
+# 1. CARICAMENTO E GESTIONE DATI
 @st.cache_data
 def load_data():
     try:
+        # Legge il file saltando le prime 16 righe di intestazione del PBDB
         df = pd.read_csv("pbdb_data (1).csv", skiprows=16)
         
+        # Priorità a accepted_name, altrimenti usa identified_name
         if 'accepted_name' in df.columns:
             df = df.dropna(subset=['accepted_name'])
             df['name'] = df['accepted_name']
@@ -26,17 +30,18 @@ def load_data():
 df = load_data()
 
 if df.empty:
-    st.warning("Il database è vuoto o il file CSV non è stato letto correttamente.")
+    st.warning("Il database è vuoto o il file CSV `pbdb_data (1).csv` non è stato trovato/letto correttamente.")
 else:
+    # 3. INTERFACCIA UTENTE - TITOLO PRINCIPALE
     st.title("🦖 Database interattivo dei Dinosauri")
     
-    # Rilevamento automatico colonne geografiche
+    # Rilevamento automatico delle colonne geografiche del CSV
     col_regione = 'region' if 'region' in df.columns else 'continent' if 'continent' in df.columns else None
     col_paese = 'country' if 'country' in df.columns else 'cc' if 'cc' in df.columns else None
     
+    # 2. FILTRI GEOGRAFICI A CASCATA
     df_filtered = df.copy()
     
-    # Filtri geografici collegati
     f_col1, f_col2 = st.columns(2)
     
     with f_col1:
@@ -48,26 +53,27 @@ else:
                 
     with f_col2:
         if col_paese:
+            # I paesi si aggiornano dinamicamente in base alla regione filtrata sopra
             paesi = sorted(df_filtered[col_paese].dropna().astype(str).unique())
             seleziona_paese = st.selectbox("🏳️ Filtra per Paese:", ["Tutti"] + list(paesi))
             if seleziona_paese != "Tutti":
                 df_filtered = df_filtered[df_filtered[col_paese] == seleziona_paese]
 
-    # Lista dinosauri filtrati
+    # Lista dinosauri disponibili in base ai filtri applicati
     dino_list = sorted(df_filtered['name'].dropna().unique())
     
     if len(dino_list) == 0:
-        st.warning("Nessun dinosauro trovato con i filtri selezionati.")
+        st.warning("Nessun dinosauro trovato con i filtri geografici selezionati.")
     else:
-        # Gestione estrazione casuale diretta
+        # Gestione dello stato per il pulsante casuale intelligente
         if 'selected_dino' not in st.session_state or st.session_state.selected_dino not in dino_list:
             st.session_state.selected_dino = dino_list[0]
 
-        # Layout Selezione + Tasto Casuale
+        # Menu a tendina e pulsante casuale affiancati
         col_select, col_btn = st.columns([3, 1])
         
         with col_btn:
-            st.write("") # Spaziatore verticale per allineare al menu
+            st.write("")  # Spaziatori per allineare verticalmente il bottone al menu
             st.write("")
             if st.button("🎲 Pescane uno a caso!"):
                 st.session_state.selected_dino = random.choice(dino_list)
@@ -79,10 +85,9 @@ else:
                 index=dino_list.index(st.session_state.selected_dino) if st.session_state.selected_dino in dino_list else 0,
                 key="dino_select"
             )
-            # Aggiorna lo stato se l'utente cambia manualmente la selezione
             st.session_state.selected_dino = selected_dino
 
-        # Scheda del dinosauro selezionato
+        # 4. SCHEDA INFORMATIVA (Senza dieta, organizzata in 2 colonne)
         if selected_dino:
             dino_data = df_filtered[df_filtered['name'] == selected_dino].iloc[0]
             
@@ -103,10 +108,10 @@ else:
                 lng = dino_data.get('lng', 'N/D')
                 st.write(f"🧭 **Coordinate geografiche:** Lat: {lat}, Lng: {lng}")
 
-            # Reindirizzamento diretto a The Dinosaur Database
+            # 5. REINDIRIZZAMENTO ESTERNO
             query_encoded = urllib.parse.quote(selected_dino)
             dino_db_url = f"https://dinosaurpictures.org/{query_encoded}"
             
             st.markdown("---")
             st.markdown(f"👉 [**Cerca {selected_dino} su The Dinosaur Database**]({dino_db_url})", unsafe_allow_html=True)
-        
+    
